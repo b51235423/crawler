@@ -9,6 +9,7 @@ import java.net.URL;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.Semaphore;
+import javax.swing.JOptionPane;
 
 /**
  *
@@ -38,8 +39,8 @@ public class crawler implements Runnable {
         //test
         worker w = new worker();
         try {
-            //w.setTarget(new URL("http://www.mobile01.com/"));
-            w.setTarget(new URL("http://disp.cc/b"));
+            w.setTarget(new URL("http://www.mobile01.com/"));
+            //w.setTarget(new URL("http://disp.cc/b"));
         } catch (Exception e) {
             e.printStackTrace();
         }

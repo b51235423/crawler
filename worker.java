@@ -145,9 +145,6 @@ public class worker implements Runnable {
         //get redirected url
         redirected = conn.getURL();
 
-        //try to do garbage collection 
-        conn = null;
-
         return true;
     }
 
@@ -190,7 +187,7 @@ public class worker implements Runnable {
         anchors = new tags("a", content);
 
         //get pure text body of the page
-        body = new tags("body", content).getFirstTag().getTextWithSpace();
+        body = new tags("body", content).getFirstTag().getSimpleContent();
 
         return true;
     }

@@ -75,7 +75,7 @@ public class tags {
             return output.replace("\t", "").replace(" +", " ").replace("\r", "");
         }
 
-        public String getTextWithSpace() {
+        public String getSimpleContent() {
             String output = filter();
             int start = output.indexOf("<");
             int end = output.indexOf(">", start);
@@ -88,7 +88,7 @@ public class tags {
         }
 
         public String filter() {
-            return filter("a img", "iframe form input button textarea font", "style script noscript", content);
+            return filter("img a", "iframe form input button textarea font", "style script noscript", content);
         }
 
         public String filter(String preserveTags, String removeTags, String removeTagsAndContent, String input) {
@@ -100,21 +100,25 @@ public class tags {
             int start = input.indexOf("<");
             int end = input.indexOf(">", start);
             while (start >= 0 && end >= 0) {
-                String tagText = input.substring(start + 1, end);
-                String s[] = tagText.split(" ");
-                if (s.length > 0 && !pt.contains(s[0].replace("/", ""))) {
-                    if (rt.contains(s[0].replace("/", "")) || s[0].startsWith("!--") || s[0].startsWith("!")) {
+                String s[] = input.substring(start + 1, end).split(" ");
+                if (s.length > 0) {
+                    if (rt.contains(s[0].replace("/", ""))) {
                         output += input.substring(lastEnd + 1, start);
                         lastEnd = end;
-                    } else if (rtc.contains(s[0])) {
+                    } else if (rtc.contains(s[0]) && !s[0].startsWith("/")) {
                         output += input.substring(lastEnd + 1, start);
                         start = input.indexOf("</" + s[0], end);
                         end = input.indexOf(">", start);
                         if (start >= 0 && end >= 0) {
                             lastEnd = end;
                         }
+                    } else if (s[0].startsWith("!")) {
+                        end = input.indexOf("->", start) + 1;
+                        output += input.substring(lastEnd + 1, start);
+                        lastEnd = end;
                     } else {
-                        output += input.substring(lastEnd + 1, start) + "<" + s[0] + ">";
+                        //System.out.println("filter else s[0]=" + s[0] + " +=" + input.substring(lastEnd + 1, start) + "<" + s[0] + ">");
+                        output += input.substring(lastEnd + 1, start) + "<" + (!pt.contains(s[0].replace("/", "")) ? s[0] : input.substring(start + 1, end)) + ">";
                         lastEnd = end;
                     }
                 }
