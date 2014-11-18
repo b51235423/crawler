@@ -75,18 +75,6 @@ public class tags {
             return output.replace("\t", "").replace(" +", " ").replace("\r", "");
         }
 
-        public String getSimpleContent() {
-            String output = filter();
-            int start = output.indexOf("<");
-            int end = output.indexOf(">", start);
-            while (start >= 0 && end >= 0) {
-                output = output.substring(0, start) + " " + output.substring(end + 1, output.length());
-                start = output.indexOf("<");
-                end = output.indexOf(">", start);
-            }
-            return output;
-        }
-
         public String filter() {
             return filter("img a", "iframe form input button textarea font", "style script noscript", content);
         }
@@ -117,7 +105,6 @@ public class tags {
                         output += input.substring(lastEnd + 1, start);
                         lastEnd = end;
                     } else {
-                        //System.out.println("filter else s[0]=" + s[0] + " +=" + input.substring(lastEnd + 1, start) + "<" + s[0] + ">");
                         output += input.substring(lastEnd + 1, start) + "<" + (!pt.contains(s[0].replace("/", "")) ? s[0] : input.substring(start + 1, end)) + ">";
                         lastEnd = end;
                     }

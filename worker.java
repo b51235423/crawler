@@ -132,8 +132,7 @@ public class worker implements Runnable {
             //read page
             try {
                 InputStream in = conn.getInputStream();
-                byte[] out = readStream(in);
-                content = new String(out, charset);
+                content = new String(readStream(in), charset);
             } catch (Exception e) {
                 e.printStackTrace();
                 return false;
@@ -187,7 +186,7 @@ public class worker implements Runnable {
         anchors = new tags("a", content);
 
         //get pure text body of the page
-        body = new tags("body", content).getFirstTag().getSimpleContent();
+        body = new tags("body", content).getFirstTag().filter();
 
         return true;
     }

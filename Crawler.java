@@ -5,6 +5,11 @@
  */
 package crawler;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.net.URL;
 import java.util.LinkedList;
 import java.util.Queue;
@@ -22,6 +27,7 @@ public class crawler implements Runnable {
 
     //singleton
     private static crawler instance = null;
+    private static Object p;
 
     //stage semaphores
     private Semaphore[] sems = new Semaphore[Stages];
@@ -39,8 +45,8 @@ public class crawler implements Runnable {
         //test
         worker w = new worker();
         try {
-            w.setTarget(new URL("http://www.mobile01.com/"));
-            //w.setTarget(new URL("http://disp.cc/b"));
+            //w.setTarget(new URL("http://www.mobile01.com/"));
+            w.setTarget(new URL("http://disp.cc/b"));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -51,6 +57,16 @@ public class crawler implements Runnable {
         System.out.println("base=" + w.getBase());
         System.out.println("redi=" + w.getRedirected());
         System.out.println("body=" + w.getBody());
+        BufferedWriter bufWriter;
+        File file;
+        try {
+            file = new File("test.txt");
+            bufWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file, false)));
+            bufWriter.write(w.getBody());
+            bufWriter.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         w.work(3);
         w.work(4);
         //w.getAnchors().list.forEach(s -> System.out.println(s.attribute("href")));
