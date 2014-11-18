@@ -43,9 +43,10 @@ public class worker implements Runnable {
                 sems[stage].acquire();
                 boolean b = work(stage);
                 sems[stage].release();
-                stage = b ? stage + 1 : stage;
+                stage = (b ? stage + 1 : stage) % Crawler.Stages;
             } catch (InterruptedException e) {
-                System.out.println(e.getMessage());
+                run = false;
+                e.printStackTrace();
             }
         }
     }
@@ -64,6 +65,9 @@ public class worker implements Runnable {
                 b = process();
                 break;
             case 3:
+                b = store();
+                break;
+            case 4:
                 b = offer();
                 break;
         }
@@ -159,6 +163,10 @@ public class worker implements Runnable {
         //get anchors
         anchors = new tags("a", content);
 
+        return true;
+    }
+
+    public boolean store() {
         //store
         return true;
     }
@@ -166,7 +174,7 @@ public class worker implements Runnable {
     public boolean offer() {
         anchors.list.forEach(s -> {
             URL u = parseHttpRef(s.attribute("href"));
-            if (u != null && !isVisited(u)) {
+            if (u != null && !db.getInstance().isVisited(u)) {
                 queue.offer(u);
             }
         });
@@ -198,10 +206,6 @@ public class worker implements Runnable {
             e.printStackTrace();
             return null;
         }
-    }
-
-    public boolean isVisited(URL url) {
-        return false;
     }
 
     public void setTarget(URL url) {

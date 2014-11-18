@@ -5,10 +5,37 @@
  */
 package crawler;
 
+import java.net.URL;
+
 /**
  *
  * @author turtlepool
  */
 public class db {
-    
+
+    //singleton
+    private static db instance = null;
+
+    /**
+     * get a running instance
+     */
+    public static db getInstance() {
+        //double-check locking
+        synchronized (db.class) {
+            if (instance == null) {
+                instance = new db();
+            }
+        }
+        return instance;
+    }
+
+    /**
+     * private constructor for singleton
+     */
+    private db() {
+    }
+
+    public boolean isVisited(URL url) {
+        return false;
+    }
 }

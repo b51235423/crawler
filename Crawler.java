@@ -17,7 +17,7 @@ import java.util.concurrent.Semaphore;
 public class Crawler implements Runnable {
 
     //
-    public static final int Stages = 4;
+    public static final int Stages = 5;
 
     //singleton
     private static Crawler instance = null;
@@ -50,6 +50,7 @@ public class Crawler implements Runnable {
         System.out.println("base=" + w.getBase());
         System.out.println("redi=" + w.getRedirected());
         w.work(3);
+        w.work(4);
         //w.getAnchors().list.forEach(s -> System.out.println(s.attribute("href")));
         getInstance().getQueue().forEach(s -> System.out.println(s.toString()));
 
