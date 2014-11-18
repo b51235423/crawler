@@ -14,13 +14,13 @@ import java.util.concurrent.Semaphore;
  *
  * @author turtlepool
  */
-public class Crawler implements Runnable {
+public class crawler implements Runnable {
 
     //
     public static final int Stages = 5;
 
     //singleton
-    private static Crawler instance = null;
+    private static crawler instance = null;
 
     //stage semaphores
     private Semaphore[] sems = new Semaphore[Stages];
@@ -38,7 +38,7 @@ public class Crawler implements Runnable {
         //test
         worker w = new worker();
         try {
-            //w.setTarget(new URL("http://stackoverflow.com/"));
+            //w.setTarget(new URL("http://www.mobile01.com/"));
             w.setTarget(new URL("http://disp.cc/b"));
         } catch (Exception e) {
             e.printStackTrace();
@@ -49,6 +49,7 @@ public class Crawler implements Runnable {
         w.work(2);
         System.out.println("base=" + w.getBase());
         System.out.println("redi=" + w.getRedirected());
+        System.out.println("body=" + w.getBody());
         w.work(3);
         w.work(4);
         //w.getAnchors().list.forEach(s -> System.out.println(s.attribute("href")));
@@ -59,11 +60,11 @@ public class Crawler implements Runnable {
     /**
      * get a running instance
      */
-    public static Crawler getInstance() {
+    public static crawler getInstance() {
         //double-check locking
-        synchronized (Crawler.class) {
+        synchronized (crawler.class) {
             if (instance == null) {
-                instance = new Crawler();
+                instance = new crawler();
             }
         }
         return instance;
@@ -72,7 +73,7 @@ public class Crawler implements Runnable {
     /**
      * private constructor for singleton
      */
-    private Crawler() {
+    private crawler() {
         for (Semaphore s : sems) {
             s = new Semaphore(1, true);
         }

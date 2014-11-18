@@ -33,6 +33,11 @@ public class db {
      * private constructor for singleton
      */
     private db() {
+        //connect to database
+    }
+
+    public void update(URL url, String content) {
+
     }
 
     public boolean isVisited(URL url) {

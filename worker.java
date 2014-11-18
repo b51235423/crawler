@@ -23,27 +23,38 @@ public class worker implements Runnable {
     public static final int ReadTimeOut = 8000;
     public static final String UserAgent = "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36";
 
+    //queue
+    private Queue<URL> queue;
+
+    //stage related
     private boolean run = true;
     private int stage = 0;
     private Semaphore[] sems;
-    private Queue<URL> queue;
+
+    //page related
+    private String base = "", body = "", content = "", title = "";
+    private tags anchors = null;
     private URL target = null;
     private URL redirected = null;
-    private String content = "", title = "", base = "";
-    private tags anchors = null;
 
+    /**
+     * worker constructor
+     */
     public worker() {
-        this.sems = Crawler.getInstance().getSemaphore();
-        this.queue = Crawler.getInstance().getQueue();
+        this.sems = crawler.getInstance().getSemaphore();
+        this.queue = crawler.getInstance().getQueue();
     }
 
+    /**
+     * do works with the stage order
+     */
     public void run() {
         while (run) {
             try {
                 sems[stage].acquire();
                 boolean b = work(stage);
                 sems[stage].release();
-                stage = (b ? stage + 1 : stage) % Crawler.Stages;
+                stage = (b ? stage + 1 : stage) % crawler.Stages;
             } catch (InterruptedException e) {
                 run = false;
                 e.printStackTrace();
@@ -51,6 +62,9 @@ public class worker implements Runnable {
         }
     }
 
+    /**
+     * do work work of stage s
+     */
     public boolean work(int s) {
         boolean b = false;
         long t = System.currentTimeMillis();
@@ -76,11 +90,17 @@ public class worker implements Runnable {
         return b;
     }
 
+    /**
+     * poll a url from the queue
+     */
     public boolean poll() {
         target = queue.poll();
         return target != null;
     }
 
+    /**
+     * fetch page from the Internet
+     */
     public boolean fetch() {
         int response = 0;
         String type = "", charset = "UTF-8";
@@ -131,6 +151,9 @@ public class worker implements Runnable {
         return true;
     }
 
+    /**
+     * read stream
+     */
     public byte[] readStream(InputStream inStream) throws Exception {
         ByteArrayOutputStream outSteam = new ByteArrayOutputStream();
         byte[] buffer = new byte[1024];
@@ -143,6 +166,9 @@ public class worker implements Runnable {
         return outSteam.toByteArray();
     }
 
+    /**
+     * process the fetched page
+     */
     public boolean process() {
         //get base of the page
         tags t = new tags("base", content);
@@ -163,14 +189,26 @@ public class worker implements Runnable {
         //get anchors
         anchors = new tags("a", content);
 
+        //get pure text body of the page
+        body = new tags("body", content).getFirstTag().getTextWithSpace();
+
         return true;
     }
 
+    /**
+     * store the content of the fetched page into database
+     */
     public boolean store() {
         //store
+        db.getInstance().update(target, body);
+        db.getInstance().update(redirected, body);
+
         return true;
     }
 
+    /**
+     * offer urls into the queue
+     */
     public boolean offer() {
         anchors.list.forEach(s -> {
             URL u = parseHttpRef(s.attribute("href"));
@@ -181,12 +219,15 @@ public class worker implements Runnable {
 
         //
         target = redirected = null;
-        content = title = base = "";
         anchors = null;
+        base = body = content = title = "";
 
         return true;
     }
 
+    /**
+     * parse URL or relative URL
+     */
     public URL parseHttpRef(String href) {
         try {
             if (href.startsWith("//")) {
@@ -208,26 +249,51 @@ public class worker implements Runnable {
         }
     }
 
+    /**
+     * set fetch target
+     */
     public void setTarget(URL url) {
         this.target = url;
     }
 
+    /**
+     * get redirected URL
+     */
     public URL getRedirected() {
         return redirected;
     }
 
-    public String getContent() {
-        return content;
-    }
-
+    /**
+     * get the base of the fetched page
+     */
     public String getBase() {
         return base;
     }
 
+    /**
+     * get body of the fetched page
+     */
+    public String getBody() {
+        return body;
+    }
+
+    /**
+     * get the content of the fetched page
+     */
+    public String getContent() {
+        return content;
+    }
+
+    /**
+     * get the title of the fetched page
+     */
     public String getTitle() {
         return title;
     }
 
+    /**
+     * get anchors of the fetched page
+     */
     public tags getAnchors() {
         return anchors;
     }

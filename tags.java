@@ -63,6 +63,18 @@ public class tags {
             return filter("&", ";", filter("<", ">", content));
         }
 
+        public String filter(String s, String e, String input) {
+            String output = input;
+            int start = output.indexOf(s);
+            int end = output.indexOf(e, start);
+            while (start >= 0 && end >= 0) {
+                output = output.substring(0, start) + output.substring(end + 1, output.length());
+                start = output.indexOf(s);
+                end = output.indexOf(e, start);
+            }
+            return output.replace("\t", "").replace(" +", " ").replace("\r", "");
+        }
+
         public String getTextWithSpace() {
             String output = filter();
             int start = output.indexOf("<");
@@ -77,18 +89,6 @@ public class tags {
 
         public String filter() {
             return filter("a img", "iframe form input button textarea font", "style script noscript", content);
-        }
-
-        public String filter(String s, String e, String input) {
-            String output = input;
-            int start = output.indexOf(s);
-            int end = output.indexOf(e, start);
-            while (start >= 0 && end >= 0) {
-                output = output.substring(0, start) + output.substring(end + 1, output.length());
-                start = output.indexOf(s);
-                end = output.indexOf(e, start);
-            }
-            return output.replace("\t", "").replace(" +", " ").replace("\r", "").replace("\n", "");
         }
 
         public String filter(String preserveTags, String removeTags, String removeTagsAndContent, String input) {
