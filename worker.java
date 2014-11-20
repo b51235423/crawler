@@ -192,12 +192,20 @@ public class worker implements Runnable {
     }
 
     /**
-     * store the content of the fetched page into database
+     * store the content of the fetched page into database 
      */
     public boolean store() {
         //store
         db.getInstance().update(target, body);
         db.getInstance().update(redirected, body);
+
+        //delete visited link
+        anchors.list.forEach(s -> {
+            URL u = parseHttpRef(s.attribute("href"));
+            if (db.getInstance().isVisited(u) || u == null) {
+                anchors.list.remove(s);
+            }
+        });
 
         return true;
     }
@@ -206,12 +214,7 @@ public class worker implements Runnable {
      * offer urls into the queue
      */
     public boolean offer() {
-        anchors.list.forEach(s -> {
-            URL u = parseHttpRef(s.attribute("href"));
-            if (u != null && !db.getInstance().isVisited(u)) {
-                queue.offer(u);
-            }
-        });
+        anchors.list.forEach(s -> queue.offer(parseHttpRef(s.attribute("href"))));
 
         //
         target = redirected = null;

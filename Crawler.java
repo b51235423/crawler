@@ -45,8 +45,8 @@ public class crawler implements Runnable {
         //test
         worker w = new worker();
         try {
-            //w.setTarget(new URL("http://www.mobile01.com/"));
-            w.setTarget(new URL("http://disp.cc/b"));
+            w.setTarget(new URL("http://www.mobile01.com/"));
+            //w.setTarget(new URL("http://disp.cc/b"));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -56,13 +56,15 @@ public class crawler implements Runnable {
         w.work(2);
         System.out.println("base=" + w.getBase());
         System.out.println("redi=" + w.getRedirected());
-        System.out.println("body=" + w.getBody());
+        //System.out.println("body=" + w.getBody());
         BufferedWriter bufWriter;
         File file;
         try {
-            file = new File("test.txt");
-            bufWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file, false)));
+            file = new File("test.htm");
+            bufWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file,false),"UTF-8"));
+            bufWriter.write("<html>\r\n<head><meta charset=UTF-8 /><base href=" + w.getBase() + " /></head>\r\n<body>\r\n");
             bufWriter.write(w.getBody());
+            bufWriter.write("\r\n</body>\r\n</html>");
             bufWriter.close();
         } catch (IOException e) {
             e.printStackTrace();
