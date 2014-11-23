@@ -101,7 +101,7 @@ public class tags {
                             lastEnd = end;
                         }
                     } else if (s[0].startsWith("!")) {
-                        end = input.indexOf("->", start) + 1;
+                        end = input.indexOf(">", start);
                         output += input.substring(lastEnd + 1, start);
                         lastEnd = end;
                     } else {
@@ -129,7 +129,7 @@ public class tags {
             String attribute = content.substring(start + 1, end);
 
             //compare the tags name
-            String s[] = attribute.split(" ");
+            String s[] = attribute.split(" |\n");
             if (s[0].equalsIgnoreCase(name)) {
                 //add the tags to list
                 int endtag = content.indexOf("</" + name + ">", end);

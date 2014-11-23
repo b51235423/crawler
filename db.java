@@ -82,12 +82,17 @@ public class db {
         mongoClient.close();
     }
 
-    public void update(URL url, String content) {
-        BasicDBObject doc = new BasicDBObject("url", url.toString())
-                .append("type", url.getProtocol())
-                .append("content", content)
-                .append("time", new Date().getTime());
-        coll.insert(doc);
+    public boolean update(URL url, String content) {
+        if (!isVisited(url)) {
+            BasicDBObject doc = new BasicDBObject("url", url.toString())
+                    .append("type", url.getProtocol())
+                    .append("tag", "html")
+                    .append("content", content)
+                    .append("time", new Date().getTime());
+            coll.insert(doc);
+            return true;
+        }
+        return false;
     }
 
     public boolean isVisited(URL url) {
@@ -101,5 +106,34 @@ public class db {
             cursor.close();
         }
         return false;
+    }
+
+    public long count() {
+        BasicDBObject query = new BasicDBObject("tag", "html");
+        return coll.count(query);
+    }
+
+    public void show() {
+        BasicDBObject query = new BasicDBObject("tag", "html");
+        DBCursor cursor = coll.find(query);
+        try {
+            while (cursor.hasNext()) {
+                System.out.println(cursor.next());
+            }
+        } finally {
+            cursor.close();
+        }
+    }
+
+    public void clear() {
+        BasicDBObject query = new BasicDBObject("tag", "html");
+        DBCursor cursor = coll.find(query);
+        try {
+            while (cursor.hasNext()) {
+                coll.remove(cursor.next());
+            }
+        } finally {
+            cursor.close();
+        }
     }
 }

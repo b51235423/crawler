@@ -14,6 +14,8 @@ import java.net.URL;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.Semaphore;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 
 /**
@@ -23,17 +25,16 @@ import javax.swing.JOptionPane;
 public class crawler implements Runnable {
 
     //
-    public static final int Stages = 5;
+    public static final int Stages = 4;
 
     //singleton
     private static crawler instance = null;
-    private static Object p;
 
     //stage semaphores
     private Semaphore[] sems = new Semaphore[Stages];
 
     //queue
-    private Queue<URL> queue = new LinkedList<URL>();
+    private queue q = new queue();
 
     /**
      * @param args the command line arguments
@@ -42,38 +43,44 @@ public class crawler implements Runnable {
         //get singleton and run
         //(new Thread(getInstance())).start();
 
+        db.getInstance().clear();
         //test
-        worker w = new worker();
         try {
-            w.setTarget(new URL("http://www.mobile01.com/"));
-            //w.setTarget(new URL("http://disp.cc/b"));
+            crawler.getInstance().q.offer(new URL("http://www.mobile01.com/"));
+            crawler.getInstance().q.offer(new URL("http://disp.cc/b"));
+            crawler.getInstance().q.offer(new URL("http://www.msn.com/zh-tw"));
+            crawler.getInstance().q.offer(new URL("http://chinese.engadget.com/"));
+            crawler.getInstance().q.offer(new URL("http://www.techbang.com/"));
+            crawler.getInstance().q.offer(new URL("https://www.pixnet.net/"));
+            crawler.getInstance().q.offer(new URL("http://www.pttbook.com/"));
+            crawler.getInstance().q.offer(new URL("http://www.teepr.com/"));
+            crawler.getInstance().q.offer(new URL("http://www.juksy.com/"));
+            crawler.getInstance().q.offer(new URL("http://janettoer.pixnet.net/blog"));
+
         } catch (Exception e) {
             e.printStackTrace();
         }
-        w.work(1);
-        //tags t = new tags("base",w.getContent());
-        //t.list.forEach(s -> System.out.println(s.attribute("href")));
-        w.work(2);
+
+        (new Thread(new worker())).start();
+        //test();
+    }
+
+    public static void test() {
+        worker w = new worker();
+        w.work();
+        w.work();
+        tags t = new tags("base", w.getContent());
+        t.list.forEach(s -> System.out.println(s.attribute("href")));
+        w.work();
         System.out.println("base=" + w.getBase());
         System.out.println("redi=" + w.getRedirected());
-        //System.out.println("body=" + w.getBody());
-        BufferedWriter bufWriter;
-        File file;
-        try {
-            file = new File("test.htm");
-            bufWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file,false),"UTF-8"));
-            bufWriter.write("<html>\r\n<head><meta charset=UTF-8 /><base href=" + w.getBase() + " /></head>\r\n<body>\r\n");
-            bufWriter.write(w.getBody());
-            bufWriter.write("\r\n</body>\r\n</html>");
-            bufWriter.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        w.work(3);
-        w.work(4);
-        //w.getAnchors().list.forEach(s -> System.out.println(s.attribute("href")));
-        getInstance().getQueue().forEach(s -> System.out.println(s.toString()));
-
+        System.out.println("body=" + w.getBody());
+        w.work();
+        w.getAnchors().list.forEach(s -> System.out.println(s.attribute("href")));
+        w.work();
+        //getInstance().getQueue().forEach(s -> System.out.println(s.toString()));
+        //db.getInstance().show();
+        //crawler.getInstance().q.show();
     }
 
     /**
@@ -93,8 +100,9 @@ public class crawler implements Runnable {
      * private constructor for singleton
      */
     private crawler() {
-        for (Semaphore s : sems) {
-            s = new Semaphore(1, true);
+        //semaphore
+        for (int i = 0; i < Stages; ++i) {
+            sems[i] = new Semaphore(1, true);
         }
     }
 
@@ -102,7 +110,19 @@ public class crawler implements Runnable {
      * run
      */
     public void run() {
+        //initial site
+        try {
+            q.offer(new URL("http://www.mobile01.com/"));
+            q.offer(new URL("http://disp.cc/b"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
+        //start workers
+        worker[] workers = new worker[5];
+        for (int i = 0; i < workers.length; ++i) {
+            workers[i] = new worker();
+        }
     }
 
     /**
@@ -115,7 +135,7 @@ public class crawler implements Runnable {
     /**
      * getQueue
      */
-    public Queue<URL> getQueue() {
-        return queue;
+    public queue getQueue() {
+        return q;
     }
 }

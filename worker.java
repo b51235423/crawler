@@ -5,11 +5,13 @@
  */
 package crawler;
 
+import crawler.tags.tag;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Iterator;
 import java.util.Queue;
 import java.util.concurrent.Semaphore;
 
@@ -19,12 +21,11 @@ import java.util.concurrent.Semaphore;
  */
 public class worker implements Runnable {
 
-    public static final int ConnTimeOut = 8000;
-    public static final int ReadTimeOut = 8000;
+    public static final int Limit = 512, ConnTimeOut = 100, ReadTimeOut = 500, MaxContentSize = 100000;
     public static final String UserAgent = "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36";
 
     //queue
-    private Queue<URL> queue;
+    private queue q;
 
     //stage related
     private boolean run = true;
@@ -32,6 +33,8 @@ public class worker implements Runnable {
     private Semaphore[] sems;
 
     //page related
+    private int fetched = 0;
+    private double[] delta = new double[crawler.Stages], count = new double[crawler.Stages];
     private String base = "", body = "", content = "", title = "";
     private tags anchors = null;
     private URL target = null;
@@ -41,60 +44,92 @@ public class worker implements Runnable {
      * worker constructor
      */
     public worker() {
-        this.sems = crawler.getInstance().getSemaphore();
-        this.queue = crawler.getInstance().getQueue();
+        sems = crawler.getInstance().getSemaphore();
+        q = crawler.getInstance().getQueue();
     }
 
     /**
      * do works with the stage order
      */
     public void run() {
+        long t = System.currentTimeMillis();
         while (run) {
             try {
                 sems[stage].acquire();
-                boolean b = work(stage);
+                work();
                 sems[stage].release();
-                stage = (b ? stage + 1 : stage) % crawler.Stages;
             } catch (InterruptedException e) {
                 run = false;
                 e.printStackTrace();
             }
+            if (fetched >= Limit) {
+                run = false;
+            }
+        }
+        t = System.currentTimeMillis() - t;
+        System.out.println(hashCode() + " fetched= " + fetched + " time=" + t + " avg=" + (fetched * 1.0 / t) * 1000 + "pages/s");
+        for (int i = 0; i < delta.length; ++i) {
+            System.out.println("stage " + i + " count=" + count[i] + " avg=" + delta[i] / count[i]);
         }
     }
 
     /**
      * do work work of stage s
      */
-    public boolean work(int s) {
+    public void work() {
         boolean b = false;
         long t = System.currentTimeMillis();
-        switch (s) {
+        switch (stage) {
             case 0:
                 b = poll();
+                t = System.currentTimeMillis() - t;
+                delta[stage] += t;
+                ++count[stage];
+                //System.out.println(hashCode() + " Stage " + stage + " time=" + t);
+                stage = b ? stage + 1 : stage;
                 break;
             case 1:
                 b = fetch();
+                t = System.currentTimeMillis() - t;
+                delta[stage] += t;
+                ++count[stage];
+                //System.out.println(hashCode() + " Stage " + stage + " time=" + t);
+                stage = b ? stage + 1 : 0;
                 break;
             case 2:
                 b = process();
+                t = System.currentTimeMillis() - t;
+                delta[stage] += t;
+                ++count[stage];
+                //System.out.println(hashCode() + " Stage " + stage + " time=" + t);
+                stage = b ? stage + 1 : stage;
                 break;
             case 3:
                 b = store();
-                break;
-            case 4:
-                b = offer();
+                t = System.currentTimeMillis() - t;
+                delta[stage] += t;
+                ++count[stage];
+                //System.out.println(hashCode() + " Stage " + stage + " time=" + t);
+                stage = b ? stage + 1 : stage;
                 break;
         }
-        t = System.currentTimeMillis() - t;
-        System.out.println("Stage " + s + " time=" + t);
-        return b;
+        stage = stage % crawler.Stages;
     }
 
     /**
      * poll a url from the queue
      */
     public boolean poll() {
-        target = queue.poll();
+        if (target != null) {
+            anchors.list.forEach(s -> {
+                URL u = parseHttpRef(s.attribute("href"));
+                if (u != null) {
+                    q.offer(u);
+                }
+            });
+            clear();
+        }
+        target = q.poll();
         return target != null;
     }
 
@@ -102,6 +137,7 @@ public class worker implements Runnable {
      * fetch page from the Internet
      */
     public boolean fetch() {
+        System.out.print(hashCode() + " " + target.toString());
         int response = 0;
         String type = "", charset = "UTF-8";
         HttpURLConnection conn = null;
@@ -117,15 +153,20 @@ public class worker implements Runnable {
             response = conn.getResponseCode();
         } catch (Exception e) {
             e.printStackTrace();
+            clear();
             return false;
         }
 
         //get charset
         type = conn.getContentType() == null ? "" : conn.getContentType();
+        if (!type.startsWith("text/html")) {
+            clear();
+            return false;
+        }
         if (type.indexOf("charset=") >= 0) {
             charset = type.substring(type.indexOf("charset=") + 8, type.length());
         }
-        System.out.println("type=" + type + " charset=" + charset + " response=" + response);
+        System.out.print(" type=" + type + " charset=" + charset + " response=" + response + " len=" + conn.getContentLength());
 
         //get content type
         if (response == 200) {
@@ -135,11 +176,14 @@ public class worker implements Runnable {
                 content = new String(readStream(in), charset);
             } catch (Exception e) {
                 e.printStackTrace();
+                clear();
                 return false;
             }
         } else {
+            clear();
             return false;
         }
+        //System.out.println("len=" + content.length());
 
         //get redirected url
         redirected = conn.getURL();
@@ -151,15 +195,24 @@ public class worker implements Runnable {
      * read stream
      */
     public byte[] readStream(InputStream inStream) throws Exception {
-        ByteArrayOutputStream outSteam = new ByteArrayOutputStream();
+        ByteArrayOutputStream outStream = new ByteArrayOutputStream();
         byte[] buffer = new byte[1024];
         int len = -1;
-        while ((len = inStream.read(buffer)) != -1) {
-            outSteam.write(buffer, 0, len);
+        while ((len = inStream.read(buffer)) != -1 && outStream.size() < MaxContentSize) {
+            outStream.write(buffer, 0, len);
         }
-        outSteam.close();
+        outStream.close();
         inStream.close();
-        return outSteam.toByteArray();
+        return outStream.toByteArray();
+    }
+
+    /**
+     * clear
+     */
+    public void clear() {
+        target = redirected = null;
+        anchors = null;
+        base = body = content = title = "";
     }
 
     /**
@@ -186,41 +239,40 @@ public class worker implements Runnable {
         anchors = new tags("a", content);
 
         //get pure text body of the page
-        body = new tags("body", content).getFirstTag().filter();
+        body = content;
+//        tags bodytags = new tags("body", content);
+//        if (bodytags.list.isEmpty()) {
+//            body = content;
+//        } else {
+//            body = bodytags.getFirstTag().filter();
+//        }
 
         return true;
     }
 
     /**
-     * store the content of the fetched page into database 
+     * store the content of the fetched page into database
      */
     public boolean store() {
         //store
-        db.getInstance().update(target, body);
-        db.getInstance().update(redirected, body);
+        if (db.getInstance().update(target, body)) {
+            ++fetched;
+        }
+        if (!redirected.toString().equals(target.toString())) {
+            db.getInstance().update(redirected, body);
+        }
 
         //delete visited link
-        anchors.list.forEach(s -> {
-            URL u = parseHttpRef(s.attribute("href"));
-            if (db.getInstance().isVisited(u) || u == null) {
-                anchors.list.remove(s);
+        for (Iterator<tag> it = anchors.list.iterator(); it.hasNext();) {
+            tag t = it.next();
+            URL u = parseHttpRef(t.attribute("href"));
+            if (u == null || db.getInstance().isVisited(u)) {
+                it.remove();
             }
-        });
+        }
 
-        return true;
-    }
-
-    /**
-     * offer urls into the queue
-     */
-    public boolean offer() {
-        anchors.list.forEach(s -> queue.offer(parseHttpRef(s.attribute("href"))));
-
-        //
-        target = redirected = null;
-        anchors = null;
-        base = body = content = title = "";
-
+        //count
+        //System.out.println(hashCode() + " fetched=" + fetched);
         return true;
     }
 
@@ -235,12 +287,14 @@ public class worker implements Runnable {
                 return new URL(redirected.getProtocol() + "://" + redirected.getAuthority() + href);
             } else if (href.startsWith("http")) {
                 return new URL(href);
-            } else if (href.startsWith("java")) {
-                return null;
-            } else if (href.startsWith("mail")) {
+            } else if (href.startsWith("jav") || href.startsWith("mail")) {
                 return null;
             } else {
-                return new URL(redirected, href);
+                if (href.endsWith("htm") || href.endsWith("htm") || href.endsWith("asp") || href.endsWith("aspx") || href.endsWith("php") || href.endsWith("jsp")) {
+                    return new URL(redirected, href);
+                } else {
+                    return null;
+                }
             }
         } catch (MalformedURLException e) {
             e.printStackTrace();
