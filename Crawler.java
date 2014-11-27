@@ -5,18 +5,10 @@
  */
 package crawler;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.net.URL;
-import java.util.LinkedList;
-import java.util.Queue;
 import java.util.concurrent.Semaphore;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JOptionPane;
 
 /**
  *
@@ -44,24 +36,10 @@ public class crawler implements Runnable {
         //(new Thread(getInstance())).start();
 
         db.getInstance().clear();
-        //test
-        try {
-            crawler.getInstance().q.offer(new URL("http://www.mobile01.com/"));
-            crawler.getInstance().q.offer(new URL("http://disp.cc/b"));
-            crawler.getInstance().q.offer(new URL("http://www.msn.com/zh-tw"));
-            crawler.getInstance().q.offer(new URL("http://chinese.engadget.com/"));
-            crawler.getInstance().q.offer(new URL("http://www.techbang.com/"));
-            crawler.getInstance().q.offer(new URL("https://www.pixnet.net/"));
-            crawler.getInstance().q.offer(new URL("http://www.pttbook.com/"));
-            crawler.getInstance().q.offer(new URL("http://www.teepr.com/"));
-            crawler.getInstance().q.offer(new URL("http://www.juksy.com/"));
-            crawler.getInstance().q.offer(new URL("http://janettoer.pixnet.net/blog"));
+        worker w = new worker();
+        (new Thread(w)).start();
+        crawler.getInstance().startListener(w);
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        (new Thread(new worker())).start();
         //test();
     }
 
@@ -123,6 +101,30 @@ public class crawler implements Runnable {
         for (int i = 0; i < workers.length; ++i) {
             workers[i] = new worker();
         }
+    }
+
+    public void startListener(worker w) {
+        new Thread(new Runnable() {
+            public void run() {
+                long t = System.currentTimeMillis();
+                while (w.isRunning()) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException ex) {
+                        ex.printStackTrace();
+                    }
+                    double s = (System.currentTimeMillis() - t) / 1000;
+                    System.out.printf("%d fetched=%8d t=%1fs avg=%8fpages/s", w.hashCode(), w.getFetched(), s, w.getFetched() / s);
+                    for (int i = 0; i < crawler.Stages; ++i) {
+                        System.out.printf("\tS%d c=%5d avg=%5fms", i, w.getStageCount(i), (float) w.getAverageStageDelay(i));
+                    }
+                    System.out.println(w.queuestr);
+                }
+                System.out.println(w.hashCode() + " Summary");
+                System.out.println(w.hashCode() + " DB.count=" + db.getInstance().count());
+                q.show();
+            }
+        }).start();
     }
 
     /**

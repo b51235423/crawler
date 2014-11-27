@@ -16,10 +16,11 @@ import java.util.Map;
  */
 public class tags {
 
+    public List<tag> list = new ArrayList<tag>();
+
     public class tag {
 
-        private String name = "";
-        private String content = "";
+        private String name = "", content = "";
         private Map<String, String> attributes = new HashMap<String, String>();
 
         public tag(String name, String attribute, String content) {
@@ -118,8 +119,6 @@ public class tags {
             return output;
         }
     }
-
-    public List<tag> list = new ArrayList<tag>();
 
     public tags(String name, String content) {
         int start = content.indexOf("<" + name);
