@@ -7,8 +7,6 @@ package crawler;
 
 import java.net.URL;
 import java.util.concurrent.Semaphore;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -104,6 +102,8 @@ public class crawler implements Runnable {
     }
 
     public void startListener(worker w) {
+        debugger d = new debugger();
+        d.setVisible(true);
         new Thread(new Runnable() {
             public void run() {
                 long t = System.currentTimeMillis();
@@ -113,18 +113,26 @@ public class crawler implements Runnable {
                     } catch (InterruptedException ex) {
                         ex.printStackTrace();
                     }
-                    double s = (System.currentTimeMillis() - t) / 1000;
-                    System.out.printf("%d fetched=%8d t=%1fs avg=%8fpages/s", w.hashCode(), w.getFetched(), s, w.getFetched() / s);
-                    for (int i = 0; i < crawler.Stages; ++i) {
-                        System.out.printf("\tS%d c=%5d avg=%5fms", i, w.getStageCount(i), (float) w.getAverageStageDelay(i));
+                    double s = r((System.currentTimeMillis() - t) / 1000);
+                    d.updateTitle(w.hashCode() + " t=" + s + "s fetched=" + w.getFetched() + " avg=" + r(w.getFetched() / s) + "pages/s");
+                    for (int i = crawler.Stages - 1; i >= 0; --i) {
+                        d.updateSMsg("\tS" + i + " c=" + w.getStageCount(i) + " avg=" + r(w.getAverageStageDelay(i)) + "ms");
                     }
-                    System.out.println(w.queuestr);
+                    d.updateSMsg(w.hashCode() + " t=" + s + "s fetched=" + w.getFetched() + " avg=" + r(w.getFetched() / s) + "pages/s");
+                    d.updateSMsg("\n\n");
+                    d.updateQMsg(w.queuestr + "\n\n");
+                    d.updateQMsg(w.hashCode() + " t=" + s + "\n");
+                    d.updateEMsg(w.hashCode() + " t=" + s + "s " + w.popException() + "\n\n");
                 }
                 System.out.println(w.hashCode() + " Summary");
                 System.out.println(w.hashCode() + " DB.count=" + db.getInstance().count());
                 q.show();
             }
         }).start();
+    }
+
+    public double r(double d) {
+        return Math.round(d * 100) * 1.0 / 100;
     }
 
     /**

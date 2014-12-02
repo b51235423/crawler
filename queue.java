@@ -17,7 +17,7 @@ import java.util.Random;
  */
 public class queue {
 
-    public static final int DefaultPriority = 500, PopLimit = 10;
+    public static final int DefaultPriority = 1000, PopLimit = 10, QueueLimit = 512;
     //public static final double R = 0.1;
 
     Random r = new Random();
@@ -28,7 +28,11 @@ public class queue {
 
     public class pqueue<T> extends LinkedList<T> implements Queue<T> {
 
-        private double[] vector;
+        private LinkedList<Integer> vector = new LinkedList<>();
+
+        public pqueue() {
+            vector.add(0);
+        }
 
         public int getPriority() {
             return 0;
@@ -97,14 +101,15 @@ public class queue {
     }
 
     public void fadeout(URL url) {
-        for (int i = 0; i < queue.size() - PopLimit; ++i) {
-            Queue<URL> q = queue.get(i);
-            if (q.peek().toString().equals(url.toString())) {
-                //queue.add(i + PopLimit, queue.remove(i));
-                queue.remove(i);
-                return;
-            }
-        }
+        setPriority(url, DefaultPriority);
+//        for (int i = 0; i < queue.size() - PopLimit; ++i) {
+//            Queue<URL> q = queue.get(i);
+//            if (q.peek().toString().equals(url.toString())) {
+//                //queue.add(i + PopLimit, queue.remove(i));
+//                //queue.remove(i);
+//                return;
+//            }
+//        }
     }
 
     public int getPriority(URL url) {
@@ -157,17 +162,17 @@ public class queue {
     public void show() {
         int i = 0;
         for (Queue<URL> q : queue) {
-            System.out.println(i + "\tp=" + priority.get(i) + " host=" + q.peek().getHost().toString() + " size=" + q.size());
+            System.out.println(i + "\np=" + priority.get(i) + " host=" + q.peek().getHost().toString() + " size=" + q.size());
             ++i;
         }
     }
 
     public String showToLimit() {
         int i = 0;
-        String s = "";
+        String s = "queues=" + queue.size();
         for (Iterator<Queue<URL>> it = queue.iterator(); it.hasNext();) {
             Queue<URL> q = it.next();
-            s += i + "\n\thost=" + q.peek().getHost().toString() + " size=" + q.size();
+            s += i + "\np=" + priority.get(i) + " host=" + q.peek().getHost().toString() + " size=" + q.size();
             if (i == PopLimit) {
                 break;
             }

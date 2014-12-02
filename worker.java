@@ -8,6 +8,7 @@ package crawler;
 import crawler.tags.tag;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -21,7 +22,7 @@ import java.util.concurrent.Semaphore;
  */
 public class worker implements Runnable {
 
-    public static final int Limit = 100, ConnTimeOut = 500, ReadTimeOut = 500;
+    public static final int Limit = 1000, ConnTimeOut = 200, ReadTimeOut = 500;
     public static final String UserAgent = "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36";
 
     //queue
@@ -145,12 +146,14 @@ public class worker implements Runnable {
             //update fetch time
             q.setPriority(target, (int) fetchtime);
             clear();
-        }
-
-        //fetch fail
-        if (fail != null) {
-            q.fadeout(fail);
-            fail = null;
+        } else {
+            //fetch fail
+            if (fail != null) {
+                q.fadeout(fail);
+                fail = null;
+            } else {
+                System.out.println(System.currentTimeMillis() + "Exception!");
+            }
         }
 
         //pop a url from queue
@@ -257,6 +260,11 @@ public class worker implements Runnable {
      */
     public boolean process() {
         //cpu operations
+        if (target == null || redirected == null) {
+            clear();
+            return false;
+        }
+
         //get base of the page
         tags t = new tags("base", content);
         t.list.forEach(s -> base = s.attribute("href"));
@@ -275,15 +283,20 @@ public class worker implements Runnable {
 
         //get anchors
         anchors = new tags("a", content);
+        if (anchors.list.isEmpty()) {
+            fail = parseHttpRef(target.toString());
+            clear();
+            return false;
+        }
 
         //get pure text body of the page
-        body = content;
-//        tags bodytags = new tags("body", content);
-//        if (bodytags.list.isEmpty()) {
-//            body = content;
-//        } else {
-//            body = bodytags.getFirstTag().filter();
-//        }
+        //body = content;
+        tags bodytags = new tags("body", content);
+        if (bodytags.list.isEmpty()) {
+            body = content;
+        } else {
+            body = bodytags.getFirstTag().filter();
+        }
 
         return true;
     }
@@ -419,5 +432,13 @@ public class worker implements Runnable {
      */
     public int getStageCount(int s) {
         return count[s];
+    }
+
+    public String popException() {
+        String s = "";
+        while (!exlist.isEmpty()) {
+            s = "\t" + exlist.remove(0).e.toString() + s;
+        }
+        return s;
     }
 }
