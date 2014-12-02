@@ -25,20 +25,25 @@ public class worker implements Runnable {
     public static final int FetchLimit = 1000, ConnTimeOut = 200, ReadTimeOut = 500;
     public static final String UserAgent = "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36";
 
+    public enum stage {
+
+        StagePoll, StageFetch, StageProcess, StageStore
+    }
+
     //queue
     private queue q;
 
     //stage related
     private boolean run = true;
+    private double[] delay = new double[crawler.Stages];
+    private double[] delaysum = new double[crawler.Stages];
     private int stage = 0;
-    private long fetchtime = 0;
+    private int[] count = new int[crawler.Stages];
+    private long fetched = 0;
     private Semaphore[] sems;
     public String queuestr = "";
 
     //page related
-    private int[] count = new int[crawler.Stages];
-    private double[] delta = new double[crawler.Stages];
-    private long fetched = 0;
     private String base = "", body = "", content = "", title = "";
     private tags anchors = null;
     private URL target = null, redirected = null, fail = null;
@@ -92,27 +97,30 @@ public class worker implements Runnable {
      * do work work of stage s
      */
     public void work() {
-        boolean b = false;
+        boolean b = true;
         long t = System.currentTimeMillis();
-        switch (stage) {
-            case 0:
-                b = poll();
-                break;
-            case 1:
-                b = fetch();
-                break;
-            case 2:
-                b = process();
-                break;
-            case 3:
-                b = store();
-                break;
+        try {
+            switch (stage) {
+                case 0:
+                    poll();
+                    break;
+                case 1:
+                    fetch();
+                    break;
+                case 2:
+                    process();
+                    break;
+                case 3:
+                    store();
+                    break;
+            }
+        } catch (Exception ex) {
+            b = false;
+            clear(ex);
         }
         t = System.currentTimeMillis() - t;
-        if (stage == 1) {
-            fetchtime = t;
-        }
-        delta[stage] += t;
+        delay[stage] = t;
+        delaysum[stage] += t;
         ++count[stage];
         stage = b ? (stage + 1) % crawler.Stages : 0;
     }
@@ -120,7 +128,7 @@ public class worker implements Runnable {
     /**
      * poll a url from the queue
      */
-    public boolean poll() {
+    public void poll() throws Exception {
         //queue operations
         //push urls into queue if this worker is already worked for a full cycle 
         if (target != null) {
@@ -132,8 +140,8 @@ public class worker implements Runnable {
             });
 
             //update fetch time
-            System.out.println(hashCode() + " S" + stage + " clear=" + target.toString() + " ft=" + fetchtime);
-            q.setPriority(target, (int) fetchtime);
+            System.out.println(hashCode() + " S" + stage + " clear=" + target.toString() + " ft=" + delay[1]);
+            q.setPriority(target, Math.floor(delay[1]));
             clear(null);
         } else if (fail != null) {
             q.setPriority(fail, q.getPriority(fail) * 2);
@@ -143,42 +151,34 @@ public class worker implements Runnable {
         //pop a url from queue
         target = q.poll();
         if (target == null || db.getInstance().isVisited(target)) {
-            clear(new Exception("Target Fetched Exception"));
-            return false;
+            throw new Exception("Target Fetched Exception");
         }
 
         queuestr = q.showToLimit();
-        return true;
     }
 
     /**
      * fetch page from the Internet
      */
-    public boolean fetch() {
+    public void fetch() throws Exception {
         //network operations
         int response = 0;
         String type = "", charset = "UTF-8";
         HttpURLConnection conn = null;
 
         //open connection
-        try {
-            conn = (HttpURLConnection) target.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("User-Agent", UserAgent);
-            conn.setConnectTimeout(ConnTimeOut);
-            conn.setReadTimeout(ReadTimeOut);
-            conn.connect();
-            response = conn.getResponseCode();
-        } catch (Exception e) {
-            clear(e);
-            return false;
-        }
+        conn = (HttpURLConnection) target.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("User-Agent", UserAgent);
+        conn.setConnectTimeout(ConnTimeOut);
+        conn.setReadTimeout(ReadTimeOut);
+        conn.connect();
+        response = conn.getResponseCode();
 
         //get charset
         type = conn.getContentType() == null ? "" : conn.getContentType();
         if (!type.startsWith("text/html")) {
-            clear(new Exception("Content Type Exception:" + type));
-            return false;
+            throw new Exception("Content Type Exception:" + type);
         }
         if (type.indexOf("charset=") >= 0) {
             charset = type.substring(type.indexOf("charset=") + 8, type.length());
@@ -187,22 +187,14 @@ public class worker implements Runnable {
         //get content type
         if (response == 200) {
             //read page
-            try {
-                InputStream in = conn.getInputStream();
-                content = new String(readStream(in), charset);
-            } catch (Exception e) {
-                clear(e);
-                return false;
-            }
+            InputStream in = conn.getInputStream();
+            content = new String(readStream(in), charset);
         } else {
-            clear(new Exception("Response Code Exception:" + response));
-            return false;
+            throw new Exception("Response Code Exception:" + response);
         }
 
         //get redirected url
         redirected = conn.getURL();
-
-        return true;
     }
 
     /**
@@ -224,7 +216,7 @@ public class worker implements Runnable {
      * clear
      */
     public void clear(Exception e) {
-        System.out.println(hashCode() + " S" + stage + " clear=" + target.toString() + " e=" + (e != null) + " ft=" + fetchtime);
+        System.out.println(hashCode() + " S" + stage + " clear=" + target.toString() + " e=" + (e != null) + " ft=" + delay[1]);
         if (e != null) {
             fail = parseHttpRef(target.toString());
             addException(e);
@@ -237,7 +229,7 @@ public class worker implements Runnable {
     /**
      * process the fetched page
      */
-    public boolean process() {
+    public void process() throws Exception {
         //cpu operations
         //get base of the page
         tags t = new tags("base", content);
@@ -258,26 +250,22 @@ public class worker implements Runnable {
         //get anchors
         anchors = new tags("a", content);
         if (anchors.list.isEmpty()) {
-            clear(new Exception("Empty Link Exception"));
-            return false;
+            throw new Exception("Empty Link Exception");
         }
 
         //get pure text body of the page
-        //body = content;
         tags bodytags = new tags("body", content);
         if (bodytags.list.isEmpty()) {
             body = content;
         } else {
             body = bodytags.getFirstTag().filter();
         }
-
-        return true;
     }
 
     /**
      * store the content of the fetched page into database
      */
-    public boolean store() {
+    public void store() throws Exception {
         //disk operations
         //store
         if (db.getInstance().update(target, body)) {
@@ -295,8 +283,6 @@ public class worker implements Runnable {
                 it.remove();
             }
         }
-
-        return true;
     }
 
     /**
@@ -397,7 +383,7 @@ public class worker implements Runnable {
      * getAverageStageDelay
      */
     public double getAverageStageDelay(int s) {
-        return delta[s] / count[s];
+        return delaysum[s] / count[s];
     }
 
     /**
