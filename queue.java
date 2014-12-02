@@ -17,7 +17,7 @@ import java.util.Random;
  */
 public class queue {
 
-    public static final int DefaultPriority = 1000, PopLimit = 10, QueueLimit = 100, PriorityDimension = 1;
+    public static final int DefaultPriority = 1000, PopLimit = 10, QueueLimit = 512, SubQueueLimit = 512, PriorityDimension = 1;
 
     Random r = new Random();
 
@@ -35,6 +35,20 @@ public class queue {
 
         public double getPriority() {
             return p[0];
+        }
+
+        public void offer(URL url) {
+            //url exists in sub queue
+            for (int i = 0; i < size(); ++i) {
+                if (get(i).toString().equals(url.toString())) {
+                    return;
+                }
+            }
+            //size of sub queue reaches the limit
+            if (size() >= SubQueueLimit) {
+                remove(Math.floor(r.nextDouble() * size()));
+            }
+            offer(url);
         }
     }
 

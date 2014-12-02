@@ -109,6 +109,9 @@ public class worker implements Runnable {
                 break;
         }
         t = System.currentTimeMillis() - t;
+        if (stage == 1) {
+            fetchtime = t;
+        }
         delta[stage] += t;
         ++count[stage];
         stage = b ? (stage + 1) % crawler.Stages : 0;
@@ -129,6 +132,7 @@ public class worker implements Runnable {
             });
 
             //update fetch time
+            System.out.println(hashCode() + " S" + stage + " clear=" + target.toString() + " ft=" + fetchtime);
             q.setPriority(target, (int) fetchtime);
             clear(null);
         } else if (fail != null) {
@@ -153,7 +157,6 @@ public class worker implements Runnable {
     public boolean fetch() {
         //network operations
         int response = 0;
-        long t = System.currentTimeMillis();
         String type = "", charset = "UTF-8";
         HttpURLConnection conn = null;
 
@@ -199,9 +202,6 @@ public class worker implements Runnable {
         //get redirected url
         redirected = conn.getURL();
 
-        //fetchtime
-        fetchtime = System.currentTimeMillis() - t;
-
         return true;
     }
 
@@ -224,7 +224,7 @@ public class worker implements Runnable {
      * clear
      */
     public void clear(Exception e) {
-        System.out.println(hashCode() + " S" + stage + " clear=" + target.toString() + " e=" + (e != null));
+        System.out.println(hashCode() + " S" + stage + " clear=" + target.toString() + " e=" + (e != null) + " ft=" + fetchtime);
         if (e != null) {
             fail = parseHttpRef(target.toString());
             addException(e);
