@@ -17,25 +17,24 @@ import java.util.Random;
  */
 public class queue {
 
-    public static final int DefaultPriority = 1000, PopLimit = 10, QueueLimit = 512;
-    //public static final double R = 0.1;
+    public static final int DefaultPriority = 1000, PopLimit = 10, QueueLimit = 100, PriorityDimension = 1;
 
     Random r = new Random();
 
     //queue
-    private LinkedList<Queue<URL>> queue = new LinkedList<>();
-    private LinkedList<Integer> priority = new LinkedList<>();
+    private LinkedList<subqueue<URL>> queue = new LinkedList<>();
+    //private LinkedList<Integer> priority = new LinkedList<>();
 
-    public class pqueue<T> extends LinkedList<T> implements Queue<T> {
+    public class subqueue<T> extends LinkedList<T> implements Queue<T> {
 
-        private LinkedList<Integer> vector = new LinkedList<>();
+        private double[] p = new double[PriorityDimension];
 
-        public pqueue() {
-            vector.add(0);
+        public void setPriority(int d, double v) {
+            p[d] = v;
         }
 
-        public int getPriority() {
-            return 0;
+        public double getPriority() {
+            return p[0];
         }
     }
 
@@ -51,7 +50,6 @@ public class queue {
             offer(new URL("http://www.pttbook.com/"));
             offer(new URL("http://www.teepr.com/"));
             offer(new URL("http://www.juksy.com/"));
-            offer(new URL("http://janettoer.pixnet.net/blog"));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -64,11 +62,15 @@ public class queue {
                 return;
             }
         }
-        Queue<URL> q = new LinkedList<URL>();
+        subqueue<URL> q = new subqueue<URL>();
         q.add(url);
-        int x = r.nextInt(Math.max(queue.size(), 1));
-        queue.add(x, q);
-        priority.add(x, r.nextInt(DefaultPriority));
+        q.setPriority(0, Math.floor(r.nextDouble() * DefaultPriority));
+        if (queue.size() < QueueLimit) {
+            queue.add(q);
+        } else {
+            queue.remove(queue.size() - 1);
+            queue.add(q);
+        }
         sort(0, queue.size() - 1);
     }
 
@@ -86,67 +88,46 @@ public class queue {
         return url;
     }
 
-    public void setPriority(URL url, int p) {
+    public void setPriority(URL url, double v) {
+        if (!queue.isEmpty()) {
+            return;
+        }
         int i = 0;
-        for (Queue<URL> q : queue) {
+        for (subqueue<URL> q : queue) {
             if (q.peek().getHost().toString().equals(url.getHost().toString())) {
-                priority.set(i, p);
-                if (!priority.isEmpty()) {
-                    sort(0, queue.size() - 1);
-                }
+                q.setPriority(0, v);
+                sort(0, queue.size() - 1);
                 return;
             }
             ++i;
         }
     }
 
-    public void fadeout(URL url) {
-        setPriority(url, DefaultPriority);
-//        for (int i = 0; i < queue.size() - PopLimit; ++i) {
-//            Queue<URL> q = queue.get(i);
-//            if (q.peek().toString().equals(url.toString())) {
-//                //queue.add(i + PopLimit, queue.remove(i));
-//                //queue.remove(i);
-//                return;
-//            }
-//        }
-    }
-
-    public int getPriority(URL url) {
+    public double getPriority(URL url) {
         int i = 0;
-        for (Queue<URL> q : queue) {
+        for (subqueue<URL> q : queue) {
             if (q.peek().getHost().toString().equals(url.getHost().toString())) {
-                return priority.get(i);
+                return q.getPriority();
             }
             ++i;
         }
-        return getMidPriority();
-    }
-
-    public int getMidPriority() {
-        if (priority.isEmpty()) {
-            return DefaultPriority;
-        } else {
-            return priority.get(priority.size() / 2);
-        }
+        return DefaultPriority / 2;
     }
 
     public void sort(int from, int to) {
         //System.out.println("sort to=" + to);
-        int m = 0, n = 0, pivot = priority.get(to);
+        double pivot = queue.get(to).getPriority();
+        int m = 0, n = 0;
         for (int i = from; i < to; ++i) {
-            if (pivot > priority.get(i)) {
+            if (pivot > queue.get(i).getPriority()) {
                 queue.add(from + m, queue.remove(i));
-                priority.add(from + m, priority.remove(i));
                 ++m;
             } else {
                 queue.add(from + m + n, queue.remove(i));
-                priority.add(from + m + n, priority.remove(i));
                 ++n;
             }
         }
         queue.add(from + m, queue.remove(to));
-        priority.add(from + m, priority.remove(to));
         if (m > 2) {
             sort(from, from + m - 1);
         }
@@ -161,8 +142,9 @@ public class queue {
 
     public void show() {
         int i = 0;
+        System.out.println("queues=" + queue.size());
         for (Queue<URL> q : queue) {
-            System.out.println(i + "\np=" + priority.get(i) + " host=" + q.peek().getHost().toString() + " size=" + q.size());
+            System.out.println(i + " p=" + queue.get(i).getPriority() + " host=" + q.peek().getHost().toString() + " size=" + q.size());
             ++i;
         }
     }
@@ -170,9 +152,9 @@ public class queue {
     public String showToLimit() {
         int i = 0;
         String s = "queues=" + queue.size();
-        for (Iterator<Queue<URL>> it = queue.iterator(); it.hasNext();) {
+        for (Iterator<subqueue<URL>> it = queue.iterator(); it.hasNext();) {
             Queue<URL> q = it.next();
-            s += i + "\np=" + priority.get(i) + " host=" + q.peek().getHost().toString() + " size=" + q.size();
+            s += "\n" + i + " p=" + queue.get(i).getPriority() + " host=" + q.peek().getHost().toString() + " size=" + q.size();
             if (i == PopLimit) {
                 break;
             }

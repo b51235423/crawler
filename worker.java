@@ -22,7 +22,7 @@ import java.util.concurrent.Semaphore;
  */
 public class worker implements Runnable {
 
-    public static final int Limit = 1000, ConnTimeOut = 200, ReadTimeOut = 500;
+    public static final int FetchLimit = 1000, ConnTimeOut = 200, ReadTimeOut = 500;
     public static final String UserAgent = "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36";
 
     //queue
@@ -82,7 +82,7 @@ public class worker implements Runnable {
                 addException(e);
                 run = false;
             }
-            if (fetched >= Limit) {
+            if (fetched >= FetchLimit) {
                 run = false;
             }
         }
@@ -97,36 +97,21 @@ public class worker implements Runnable {
         switch (stage) {
             case 0:
                 b = poll();
-                countStageDelay(t);
-                stage = b ? stage + 1 : stage;
                 break;
             case 1:
                 b = fetch();
-                countStageDelay(t);
-                stage = b ? stage + 1 : 0;
                 break;
             case 2:
                 b = process();
-                countStageDelay(t);
-                stage = b ? stage + 1 : stage;
                 break;
             case 3:
                 b = store();
-                countStageDelay(t);
-                stage = b ? stage + 1 : stage;
                 break;
         }
-        stage = stage % crawler.Stages;
-    }
-
-    /**
-     * countStageDelay
-     */
-    private long countStageDelay(long start) {
-        long delay = System.currentTimeMillis() - start;
-        delta[stage] += delay;
+        t = System.currentTimeMillis() - t;
+        delta[stage] += t;
         ++count[stage];
-        return delay;
+        stage = b ? (stage + 1) % crawler.Stages : 0;
     }
 
     /**
@@ -134,7 +119,7 @@ public class worker implements Runnable {
      */
     public boolean poll() {
         //queue operations
-        //push urls into queue if not in initialization
+        //push urls into queue if this worker is already worked for a full cycle 
         if (target != null) {
             anchors.list.forEach(s -> {
                 URL u = parseHttpRef(s.attribute("href"));
@@ -145,21 +130,16 @@ public class worker implements Runnable {
 
             //update fetch time
             q.setPriority(target, (int) fetchtime);
-            clear();
-        } else {
-            //fetch fail
-            if (fail != null) {
-                q.fadeout(fail);
-                fail = null;
-            } else {
-                System.out.println(System.currentTimeMillis() + "Exception!");
-            }
+            clear(null);
+        } else if (fail != null) {
+            q.setPriority(fail, q.getPriority(fail) * 2);
+            fail = null;
         }
 
         //pop a url from queue
         target = q.poll();
         if (target == null || db.getInstance().isVisited(target)) {
-            clear();
+            clear(new Exception("Target Fetched Exception"));
             return false;
         }
 
@@ -187,17 +167,14 @@ public class worker implements Runnable {
             conn.connect();
             response = conn.getResponseCode();
         } catch (Exception e) {
-            addException(e);
-            fail = parseHttpRef(target.toString());
-            clear();
+            clear(e);
             return false;
         }
 
         //get charset
         type = conn.getContentType() == null ? "" : conn.getContentType();
         if (!type.startsWith("text/html")) {
-            fail = parseHttpRef(target.toString());
-            clear();
+            clear(new Exception("Content Type Exception:" + type));
             return false;
         }
         if (type.indexOf("charset=") >= 0) {
@@ -211,14 +188,11 @@ public class worker implements Runnable {
                 InputStream in = conn.getInputStream();
                 content = new String(readStream(in), charset);
             } catch (Exception e) {
-                addException(e);
-                fail = parseHttpRef(target.toString());
-                clear();
+                clear(e);
                 return false;
             }
         } else {
-            fail = parseHttpRef(target.toString());
-            clear();
+            clear(new Exception("Response Code Exception:" + response));
             return false;
         }
 
@@ -249,7 +223,12 @@ public class worker implements Runnable {
     /**
      * clear
      */
-    public void clear() {
+    public void clear(Exception e) {
+        System.out.println(hashCode() + " S" + stage + " clear=" + target.toString() + " e=" + (e != null));
+        if (e != null) {
+            fail = parseHttpRef(target.toString());
+            addException(e);
+        }
         target = redirected = null;
         anchors = null;
         base = body = content = title = "";
@@ -260,11 +239,6 @@ public class worker implements Runnable {
      */
     public boolean process() {
         //cpu operations
-        if (target == null || redirected == null) {
-            clear();
-            return false;
-        }
-
         //get base of the page
         tags t = new tags("base", content);
         t.list.forEach(s -> base = s.attribute("href"));
@@ -284,8 +258,7 @@ public class worker implements Runnable {
         //get anchors
         anchors = new tags("a", content);
         if (anchors.list.isEmpty()) {
-            fail = parseHttpRef(target.toString());
-            clear();
+            clear(new Exception("Empty Link Exception"));
             return false;
         }
 
