@@ -25,7 +25,7 @@ public class queue {
     private LinkedList<subqueue<URL>> queue = new LinkedList<>();
     //private LinkedList<Integer> priority = new LinkedList<>();
 
-    public class subqueue<T> extends LinkedList<T> implements Queue<T> {
+    public class subqueue<E> extends LinkedList<E> implements Queue<E> {
 
         private double[] p = new double[PriorityDimension];
 
@@ -37,18 +37,18 @@ public class queue {
             return p[0];
         }
 
-        public void offer(URL url) {
-            //url exists in sub queue
-            for (int i = 0; i < size(); ++i) {
-                if (get(i).toString().equals(url.toString())) {
-                    return;
+        public boolean offer(E element) {
+            //element exists in sub queue
+            for (Iterator<E> it = iterator(); it.hasNext();) {
+                if (it.next().toString().equals(element.toString())) {
+                    return false;
                 }
             }
             //size of sub queue reaches the limit
             if (size() >= SubQueueLimit) {
-                remove(Math.floor(r.nextDouble() * size()));
+                poll();
             }
-            offer(url);
+            return super.offer(element);
         }
     }
 
