@@ -12,18 +12,18 @@ import java.util.concurrent.Semaphore;
  *
  * @author turtlepool
  */
-public class crawler implements Runnable {
+public class Crawler implements Runnable {
 
     //
     //public static final int Stages = 4;
     //singleton
-    private static crawler instance = null;
+    private static Crawler instance = null;
 
     //stage semaphores
-    private Semaphore[] sems = new Semaphore[worker.stage.values().length];
+    private Semaphore[] sems = new Semaphore[Worker.stage.values().length];
 
     //queue
-    private queue q = new queue();
+    private MultiQueue q = new MultiQueue();
 
     /**
      * @param args the command line arguments
@@ -32,19 +32,19 @@ public class crawler implements Runnable {
         //get singleton and run
         //(new Thread(getInstance())).start();
 
-        db.getInstance().clear();
-        worker w = new worker();
+        Database.getInstance().clear();
+        Worker w = new Worker();
         (new Thread(w)).start();
-        crawler.getInstance().startListener(w);
+        Crawler.getInstance().startListener(w);
 
         //test();
     }
 
     public static void test() {
-        worker w = new worker();
+        Worker w = new Worker();
         w.work();
         w.work();
-        tags t = new tags("base", w.getContent());
+        Tag t = new Tag("base", w.getContent());
         t.list.forEach(s -> System.out.println(s.attribute("href")));
         w.work();
         System.out.println("base=" + w.getBase());
@@ -61,11 +61,11 @@ public class crawler implements Runnable {
     /**
      * get a running instance
      */
-    public static crawler getInstance() {
+    public static Crawler getInstance() {
         //double-check locking
-        synchronized (crawler.class) {
+        synchronized (Crawler.class) {
             if (instance == null) {
-                instance = new crawler();
+                instance = new Crawler();
             }
         }
         return instance;
@@ -74,9 +74,9 @@ public class crawler implements Runnable {
     /**
      * private constructor for singleton
      */
-    private crawler() {
+    private Crawler() {
         //semaphore
-        for (int i = 0; i < worker.stage.values().length; ++i) {
+        for (int i = 0; i < Worker.stage.values().length; ++i) {
             sems[i] = new Semaphore(1, true);
         }
     }
@@ -94,14 +94,14 @@ public class crawler implements Runnable {
         }
 
         //start workers
-        worker[] workers = new worker[5];
+        Worker[] workers = new Worker[5];
         for (int i = 0; i < workers.length; ++i) {
-            workers[i] = new worker();
+            workers[i] = new Worker();
         }
     }
 
-    public void startListener(worker w) {
-        debugger d = new debugger();
+    public void startListener(Worker w) {
+        Debugger d = new Debugger();
         d.setVisible(true);
         new Thread(new Runnable() {
             public void run() {
@@ -114,7 +114,7 @@ public class crawler implements Runnable {
                     }
                     double s = r((System.currentTimeMillis() - t) / 1000);
                     d.updateTitle(w.hashCode() + " t=" + s + "s fetched=" + w.getFetched() + " avg=" + r(w.getFetched() / s) + "pages/s");
-                    for (int i = worker.stage.values().length - 1; i >= 0; --i) {
+                    for (int i = Worker.stage.values().length - 1; i >= 0; --i) {
                         d.updateSMsg("\tS" + i + " c=" + w.getStageCount(i) + " avg=" + r(w.getAverageStageDelay(i)) + "ms");
                     }
                     d.updateSMsg(w.hashCode() + " t=" + s + "s fetched=" + w.getFetched() + " avg=" + r(w.getFetched() / s) + "pages/s");
@@ -124,7 +124,7 @@ public class crawler implements Runnable {
                     d.updateEMsg(w.hashCode() + " t=" + s + "s " + w.popException() + "\n\n");
                 }
                 System.out.println(w.hashCode() + " Summary");
-                System.out.println(w.hashCode() + " DB.count=" + db.getInstance().count());
+                System.out.println(w.hashCode() + " DB.count=" + Database.getInstance().count());
                 q.show();
             }
         }).start();
@@ -144,7 +144,7 @@ public class crawler implements Runnable {
     /**
      * getQueue
      */
-    public queue getQueue() {
+    public MultiQueue getQueue() {
         return q;
     }
 }

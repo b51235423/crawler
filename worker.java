@@ -5,7 +5,7 @@
  */
 package crawler;
 
-import crawler.tags.tag;
+import crawler.Tag.tag;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -19,13 +19,13 @@ import java.util.concurrent.Semaphore;
  *
  * @author turtlepool
  */
-public class worker implements Runnable {
+public class Worker implements Runnable {
 
     public static final int FetchLimit = 1000, ConnTimeOut = 200, ReadTimeOut = 500;
     public static final String UserAgent = "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36";
 
     //queue
-    private queue q;
+    private MultiQueue q;
 
     //stage related
     private boolean run = true;
@@ -39,7 +39,7 @@ public class worker implements Runnable {
 
     //page related
     private String base = "", body = "", content = "", title = "";
-    private tags anchors = null;
+    private Tag anchors = null;
     private URL target = null, redirected = null, fail = null;
 
     //Exceptions
@@ -48,9 +48,9 @@ public class worker implements Runnable {
     /**
      * worker constructor
      */
-    public worker() {
-        sems = crawler.getInstance().getSemaphore();
-        q = crawler.getInstance().getQueue();
+    public Worker() {
+        sems = Crawler.getInstance().getSemaphore();
+        q = Crawler.getInstance().getQueue();
     }
 
     /**
@@ -105,11 +105,11 @@ public class worker implements Runnable {
     }
 
     /**
-     * poll a url from the queue
+     * poll a url from the Queue
      */
     public void poll() throws Exception {
         //queue operations
-        //push urls into queue if this worker is already worked for a full cycle 
+        //push urls into Queue if this Worker is already worked for a full cycle 
         if (target != null) {
             anchors.list.forEach(s -> {
                 URL u = parseHttpRef(s.attribute("href"));
@@ -119,16 +119,16 @@ public class worker implements Runnable {
             });
 
             //update fetch time
-            q.setPriority(target, Math.floor(delay[stage.StageFetch.ordinal()]));
+            q.setPriority(target, MultiQueue.priority.PrFetchTime.ordinal(), Math.floor(delay[stage.StageFetch.ordinal()]));
             clear(null);
         } else if (fail != null) {
-            q.setPriority(fail, q.getPriority(fail) * 2);
+            q.setPriority(fail, MultiQueue.priority.PrExceptions.ordinal(), q.getPriority(fail, MultiQueue.priority.PrExceptions.ordinal() * 2));
             fail = null;
         }
 
-        //pop a url from queue
+        //pop a url from MultiQueue
         target = q.poll();
-        if (target == null || db.getInstance().isVisited(target)) {
+        if (target == null || Database.getInstance().isVisited(target)) {
             throw new Exception("Target Fetched Exception");
         }
 
@@ -210,7 +210,7 @@ public class worker implements Runnable {
     public void process() throws Exception {
         //cpu operations
         //get base of the page
-        tags t = new tags("base", content);
+        Tag t = new Tag("base", content);
         t.list.forEach(s -> base = s.attribute("href"));
         if (base.equals("")) {
             base = redirected.getProtocol() + "://" + redirected.getAuthority() + "/";
@@ -222,17 +222,17 @@ public class worker implements Runnable {
         }
 
         //get title
-        t = new tags("title", content);
+        t = new Tag("title", content);
         t.list.forEach(s -> title = s.getText());
 
         //get anchors
-        anchors = new tags("a", content);
+        anchors = new Tag("a", content);
         if (anchors.list.isEmpty()) {
             throw new Exception("Empty Link Exception");
         }
 
         //get pure text body of the page
-        tags bodytags = new tags("body", content);
+        Tag bodytags = new Tag("body", content);
         if (bodytags.list.isEmpty()) {
             body = content;
         } else {
@@ -246,18 +246,18 @@ public class worker implements Runnable {
     public void store() throws Exception {
         //disk operations
         //store
-        if (db.getInstance().update(target, body)) {
+        if (Database.getInstance().update(target, body)) {
             ++fetched;
         }
         if (!redirected.toString().equals(target.toString())) {
-            db.getInstance().update(redirected, body);
+            Database.getInstance().update(redirected, body);
         }
 
         //delete visited link
         for (Iterator<tag> it = anchors.list.iterator(); it.hasNext();) {
             tag t = it.next();
             URL u = parseHttpRef(t.attribute("href"));
-            if (u == null || db.getInstance().isVisited(u)) {
+            if (u == null || Database.getInstance().isVisited(u)) {
                 it.remove();
             }
         }
@@ -339,7 +339,7 @@ public class worker implements Runnable {
     /**
      * get anchors of the fetched page
      */
-    public tags getAnchors() {
+    public Tag getAnchors() {
         return anchors;
     }
 
