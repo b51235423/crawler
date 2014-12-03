@@ -18,9 +18,38 @@ public class tags {
 
     public List<tag> list = new ArrayList<tag>();
 
+
+    public tags(String name, String content) {
+        int start = content.indexOf("<" + name);
+        int end = content.indexOf(">", start);
+
+        while (start >= 0 && end >= 0) {
+            String attribute = content.substring(start + 1, end);
+
+            //compare the tags name
+            String s[] = attribute.split(" |\n");
+            if (s[0].equalsIgnoreCase(name)) {
+                //add the tags to list
+                int endtag = content.indexOf("</" + name + ">", end);
+                list.add(new tag(name, attribute, content.substring(end + 1, endtag < 0 ? end + 1 : endtag)));
+            }
+
+            start = content.indexOf("<" + name, end);
+            end = content.indexOf(">", start);
+        }
+    }
+
+    public tag getFirstTag() {
+        if (!list.isEmpty()) {
+            return list.get(0);
+        }
+        return null;
+    }
+
     public class tag {
 
-        private String name = "", content = "";
+        private String name = "";
+        private String content = "";
         private Map<String, String> attributes = new HashMap<String, String>();
 
         public tag(String name, String attribute, String content) {
@@ -118,32 +147,5 @@ public class tags {
             output += input.substring(lastEnd + 1, input.length());
             return output;
         }
-    }
-
-    public tags(String name, String content) {
-        int start = content.indexOf("<" + name);
-        int end = content.indexOf(">", start);
-
-        while (start >= 0 && end >= 0) {
-            String attribute = content.substring(start + 1, end);
-
-            //compare the tags name
-            String s[] = attribute.split(" |\n");
-            if (s[0].equalsIgnoreCase(name)) {
-                //add the tags to list
-                int endtag = content.indexOf("</" + name + ">", end);
-                list.add(new tag(name, attribute, content.substring(end + 1, endtag < 0 ? end + 1 : endtag)));
-            }
-
-            start = content.indexOf("<" + name, end);
-            end = content.indexOf(">", start);
-        }
-    }
-
-    public tag getFirstTag() {
-        if (!list.isEmpty()) {
-            return list.get(0);
-        }
-        return null;
     }
 }

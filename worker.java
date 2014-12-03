@@ -8,7 +8,6 @@ package crawler;
 import crawler.tags.tag;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.io.PrintStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -25,20 +24,15 @@ public class worker implements Runnable {
     public static final int FetchLimit = 1000, ConnTimeOut = 200, ReadTimeOut = 500;
     public static final String UserAgent = "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.111 Safari/537.36";
 
-    public enum stage {
-
-        StagePoll, StageFetch, StageProcess, StageStore
-    }
-
     //queue
     private queue q;
 
     //stage related
     private boolean run = true;
-    private double[] delay = new double[crawler.Stages];
-    private double[] delaysum = new double[crawler.Stages];
-    private int stage = 0;
-    private int[] count = new int[crawler.Stages];
+    private double[] delay = new double[stage.values().length];
+    private double[] delaysum = new double[stage.values().length];
+    private stage currentstage = stage.StagePoll;
+    private int[] count = new int[stage.values().length];
     private long fetched = 0;
     private Semaphore[] sems;
     public String queuestr = "";
@@ -50,21 +44,6 @@ public class worker implements Runnable {
 
     //Exceptions
     private LinkedList<ex> exlist = new LinkedList<>();
-
-    public class ex {
-
-        public URL url;
-        public long time;
-        public int stage;
-        public Exception e;
-
-        public ex(URL url, long time, int stage, Exception e) {
-            this.url = url;
-            this.stage = stage;
-            this.time = time;
-            this.e = e;
-        }
-    }
 
     /**
      * worker constructor
@@ -80,9 +59,9 @@ public class worker implements Runnable {
     public void run() {
         while (run) {
             try {
-                sems[stage].acquire();
+                sems[currentstage.ordinal()].acquire();
                 work();
-                sems[stage].release();
+                sems[currentstage.ordinal()].release();
             } catch (InterruptedException e) {
                 addException(e);
                 run = false;
@@ -100,17 +79,17 @@ public class worker implements Runnable {
         boolean b = true;
         long t = System.currentTimeMillis();
         try {
-            switch (stage) {
-                case 0:
+            switch (currentstage) {
+                case StagePoll:
                     poll();
                     break;
-                case 1:
+                case StageFetch:
                     fetch();
                     break;
-                case 2:
+                case StageProcess:
                     process();
                     break;
-                case 3:
+                case StageStore:
                     store();
                     break;
             }
@@ -119,10 +98,10 @@ public class worker implements Runnable {
             clear(ex);
         }
         t = System.currentTimeMillis() - t;
-        delay[stage] = t;
-        delaysum[stage] += t;
-        ++count[stage];
-        stage = b ? (stage + 1) % crawler.Stages : 0;
+        delay[currentstage.ordinal()] = t;
+        delaysum[currentstage.ordinal()] += t;
+        ++count[currentstage.ordinal()];
+        currentstage = stage.values()[b ? (currentstage.ordinal() + 1) % stage.values().length : 0];
     }
 
     /**
@@ -140,7 +119,6 @@ public class worker implements Runnable {
             });
 
             //update fetch time
-            System.out.println(hashCode() + " S" + stage + " clear=" + target.toString() + " ft=" + delay[1]);
             q.setPriority(target, Math.floor(delay[1]));
             clear(null);
         } else if (fail != null) {
@@ -216,7 +194,7 @@ public class worker implements Runnable {
      * clear
      */
     public void clear(Exception e) {
-        System.out.println(hashCode() + " S" + stage + " clear=" + target.toString() + " e=" + (e != null) + " ft=" + delay[1]);
+        System.out.println(hashCode() + " S" + currentstage + " clear=" + target.toString() + " e=" + (e != null) + " ft=" + delay[1]);
         if (e != null) {
             fail = parseHttpRef(target.toString());
             addException(e);
@@ -312,7 +290,7 @@ public class worker implements Runnable {
     }
 
     private void addException(Exception exception) {
-        ex e = new ex(target, System.currentTimeMillis(), stage, exception);
+        ex e = new ex(target, System.currentTimeMillis(), currentstage.ordinal(), exception);
         exlist.add(e);
     }
 
@@ -396,8 +374,29 @@ public class worker implements Runnable {
     public String popException() {
         String s = "";
         while (!exlist.isEmpty()) {
-            s = "\t" + exlist.remove(0).e.toString() + s;
+            ex e = exlist.remove();
+            s = "\nt=" + e.time + " url=" + e.url.getHost().toString() + " ex=" + e.e.toString() + s;
         }
         return s;
+    }
+
+    public enum stage {
+
+        StagePoll, StageFetch, StageProcess, StageStore
+    }
+
+    public class ex {
+
+        public URL url;
+        public long time;
+        public int stage;
+        public Exception e;
+
+        public ex(URL url, long time, int stage, Exception e) {
+            this.url = url;
+            this.stage = stage;
+            this.time = time;
+            this.e = e;
+        }
     }
 }

@@ -15,13 +15,12 @@ import java.util.concurrent.Semaphore;
 public class crawler implements Runnable {
 
     //
-    public static final int Stages = 4;
-
+    //public static final int Stages = 4;
     //singleton
     private static crawler instance = null;
 
     //stage semaphores
-    private Semaphore[] sems = new Semaphore[Stages];
+    private Semaphore[] sems = new Semaphore[worker.stage.values().length];
 
     //queue
     private queue q = new queue();
@@ -77,7 +76,7 @@ public class crawler implements Runnable {
      */
     private crawler() {
         //semaphore
-        for (int i = 0; i < Stages; ++i) {
+        for (int i = 0; i < worker.stage.values().length; ++i) {
             sems[i] = new Semaphore(1, true);
         }
     }
@@ -115,7 +114,7 @@ public class crawler implements Runnable {
                     }
                     double s = r((System.currentTimeMillis() - t) / 1000);
                     d.updateTitle(w.hashCode() + " t=" + s + "s fetched=" + w.getFetched() + " avg=" + r(w.getFetched() / s) + "pages/s");
-                    for (int i = crawler.Stages - 1; i >= 0; --i) {
+                    for (int i = worker.stage.values().length - 1; i >= 0; --i) {
                         d.updateSMsg("\tS" + i + " c=" + w.getStageCount(i) + " avg=" + r(w.getAverageStageDelay(i)) + "ms");
                     }
                     d.updateSMsg(w.hashCode() + " t=" + s + "s fetched=" + w.getFetched() + " avg=" + r(w.getFetched() / s) + "pages/s");

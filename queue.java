@@ -17,7 +17,7 @@ import java.util.Random;
  */
 public class queue {
 
-    public static final int DefaultPriority = 1000, PopLimit = 10, QueueLimit = 512, SubQueueLimit = 512, PriorityDimension = 1;
+    public static final int DefaultPriority = 1000, PopLimit = 10, QueueLimit = 512, SubQueueLimit = 512, PriorityDimension = 2;
 
     Random r = new Random();
 
@@ -34,7 +34,7 @@ public class queue {
         }
 
         public double getPriority() {
-            return p[0];
+            return p[0] + p[1];
         }
 
         public boolean offer(E element) {
