@@ -17,40 +17,14 @@ import java.util.Random;
  */
 public class queue {
 
-    public static final int DefaultPriority = 1000, PopLimit = 10, QueueLimit = 512, SubQueueLimit = 512, PriorityDimension = 2;
+    public static final int DefaultPriority = 1000, PopLimit = 10, QueueLimit = 512, SubQueueLimit = 512;
 
-    Random r = new Random();
+    //random
+    private Random r = new Random();
 
     //queue
     private LinkedList<subqueue<URL>> queue = new LinkedList<>();
     //private LinkedList<Integer> priority = new LinkedList<>();
-
-    public class subqueue<E> extends LinkedList<E> implements Queue<E> {
-
-        private double[] p = new double[PriorityDimension];
-
-        public void setPriority(int d, double v) {
-            p[d] = v;
-        }
-
-        public double getPriority() {
-            return p[0] + p[1];
-        }
-
-        public boolean offer(E element) {
-            //element exists in sub queue
-            for (Iterator<E> it = iterator(); it.hasNext();) {
-                if (it.next().toString().equals(element.toString())) {
-                    return false;
-                }
-            }
-            //size of sub queue reaches the limit
-            if (size() >= SubQueueLimit) {
-                poll();
-            }
-            return super.offer(element);
-        }
-    }
 
     public queue() {
         //test
@@ -125,7 +99,7 @@ public class queue {
             }
             ++i;
         }
-        return DefaultPriority / 2;
+        return 0.5 * DefaultPriority;
     }
 
     public void sort(int from, int to) {
@@ -175,5 +149,37 @@ public class queue {
             ++i;
         }
         return s;
+    }
+
+    public enum priority {
+
+        PrFetchTime, PrExceptions
+    }
+
+    public class subqueue<E> extends LinkedList<E> implements Queue<E> {
+
+        private double[] p = new double[priority.values().length];
+
+        public void setPriority(int d, double v) {
+            p[d] = v;
+        }
+
+        public double getPriority() {
+            return p[priority.PrFetchTime.ordinal()] + p[priority.PrExceptions.ordinal()];
+        }
+
+        public boolean offer(E element) {
+            //element exists in sub queue
+            for (Iterator<E> it = iterator(); it.hasNext();) {
+                if (it.next().toString().equals(element.toString())) {
+                    return false;
+                }
+            }
+            //size of sub queue reaches the limit
+            if (size() >= SubQueueLimit) {
+                poll();
+            }
+            return super.offer(element);
+        }
     }
 }

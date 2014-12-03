@@ -119,7 +119,7 @@ public class worker implements Runnable {
             });
 
             //update fetch time
-            q.setPriority(target, Math.floor(delay[1]));
+            q.setPriority(target, Math.floor(delay[stage.StageFetch.ordinal()]));
             clear(null);
         } else if (fail != null) {
             q.setPriority(fail, q.getPriority(fail) * 2);
@@ -194,7 +194,7 @@ public class worker implements Runnable {
      * clear
      */
     public void clear(Exception e) {
-        System.out.println(hashCode() + " S" + currentstage + " clear=" + target.toString() + " e=" + (e != null) + " ft=" + delay[1]);
+        System.out.println(hashCode() + " S" + currentstage + " clear=" + target.toString() + " e=" + (e != null) + " ft=" + delay[stage.StageFetch.ordinal()]);
         if (e != null) {
             fail = parseHttpRef(target.toString());
             addException(e);
